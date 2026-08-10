@@ -9,8 +9,8 @@ VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN")
 PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
 
-# Your Google Sheets Web App URL
-GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx-P9EhxCwaifKvMw5PnMPJFZLWGd2FDtCVWhyTxdXM_FCcB7SFV_m-ni3PZz9v0oUn/exec"
+# Your updated Google Sheets Web App URL for Radiant E Serve Leads V2
+GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx2FLbs_CNv2pZ2O7lHGKjoqHaiUDQAwYAEAhB8Aw8rZmn3mUvlAntgMBH-cjHuJyIW/exec"
 
 # In-memory storage for collecting user details step-by-step
 user_sessions = {}
@@ -103,7 +103,7 @@ def receive_message():
 
                 # Finalize submission summary
                 summary = (
-                    "✅ *Request Submitted Successfully!* (Saved to Sheets)\n\n"
+                    "✅ *Request Submitted Successfully!*\n\n"
                     f"📌 *Service Type:* {lead_data.get('service')}\n"
                     f"👤 *Billing Name:* {lead_data.get('billing_name')}\n"
                     f"📞 *Registered Phone:* {lead_data.get('reg_phone')}\n"
