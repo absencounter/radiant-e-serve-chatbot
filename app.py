@@ -9,6 +9,10 @@ VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN")
 PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
 
+# In-memory storage for collecting user details step-by-step
+# Structure: { phone_number: {"state": "...", "data": {...}} }
+user_sessions = {}
+
 @app.route("/webhook", methods=["GET"])
 def verify_webhook():
     mode = request.args.get("hub.mode")
@@ -37,85 +41,133 @@ def receive_message():
             message = value["messages"][0]
             recipient_phone = message["from"]
             
-            # Check if the user typed text OR clicked an interactive list option
+            # Extract user text or interactive response ID
             user_text = ""
             if "text" in message:
-                user_text = message["text"]["body"].strip().lower()
+                user_text = message["text"]["body"].strip()
             elif "interactive" in message:
-                # Extracts the ID of the list option they clicked (e.g., "opt_1", "opt_2.1")
                 interactive_type = message["interactive"]["type"]
                 if interactive_type == "list_reply":
                     user_text = message["interactive"]["list_reply"]["id"]
 
-            # Handle choices based on button/list IDs or typed text
+            # Initialize session if not exists
+            if recipient_phone not in user_sessions:
+                user_sessions[recipient_phone] = {"state": "IDLE", "data": {}}
+
+            current_state = user_sessions[recipient_phone]["state"]
+
+            # Reset or Menu triggers
+            if user_text.lower() in ["menu", "hi", "hello", "back"]:
+                user_sessions[recipient_phone] = {"state": "IDLE", "data": {}}
+                send_main_menu(recipient_phone)
+                return jsonify({"status": "success"}), 200
+
+            # --- MULTI-STEP FORM FLOW ---
+            if current_state == "WAITING_FOR_BILLING_NAME":
+                user_sessions[recipient_phone]["data"]["billing_name"] = user_text
+                user_sessions[recipient_phone]["state"] = "WAITING_FOR_REG_PHONE"
+                send_whatsapp_message(recipient_phone, "Please enter your *registered phone number* (the number given while purchasing):")
+                return jsonify({"status": "success"}), 200
+
+            elif current_state == "WAITING_FOR_REG_PHONE":
+                user_sessions[recipient_phone]["data"]["reg_phone"] = user_text
+                user_sessions[recipient_phone]["state"] = "WAITING_FOR_BRAND"
+                send_whatsapp_message(recipient_phone, "Please enter the appliance *brand name* (e.g., Voltas, LG, Samsung):")
+                return jsonify({"status": "success"}), 200
+
+            elif current_state == "WAITING_FOR_BRAND":
+                user_sessions[recipient_phone]["data"]["brand"] = user_text
+                user_sessions[recipient_phone]["state"] = "WAITING_FOR_MODEL"
+                send_whatsapp_message(recipient_phone, "Please enter the appliance *model number*:")
+                return jsonify({"status": "success"}), 200
+
+            elif current_state == "WAITING_FOR_MODEL":
+                user_sessions[recipient_phone]["data"]["model"] = user_text
+                user_sessions[recipient_phone]["state"] = "WAITING_FOR_ADDRESS"
+                send_whatsapp_message(recipient_phone, "Please enter your *current address with pincode*:")
+                return jsonify({"status": "success"}), 200
+
+            elif current_state == "WAITING_FOR_ADDRESS":
+                user_sessions[recipient_phone]["data"]["address"] = user_text
+                
+                # Finalize submission summary
+                d = user_sessions[recipient_phone]["data"]
+                summary = (
+                    "✅ *Request Submitted Successfully!*\n\n"
+                    f"📌 *Service Type:* {d.get('service')}\n"
+                    f"👤 *Billing Name:* {d.get('billing_name')}\n"
+                    f"📞 *Registered Phone:* {d.get('reg_phone')}\n"
+                    f"🏷️ *Brand:* {d.get('brand')}\n"
+                    f"🔢 *Model Number:* {d.get('model')}\n"
+                    f"📍 *Address:* {d.get('address')}\n\n"
+                    "Our support executive will contact you shortly. Type 'menu' to start over."
+                )
+                send_whatsapp_message(recipient_phone, summary)
+                # Reset session state
+                user_sessions[recipient_phone] = {"state": "IDLE", "data": {}}
+                return jsonify({"status": "success"}), 200
+
+            # --- INITIAL MENU SELECTIONS ---
             if user_text in ["opt_1", "1"]:
                 send_interactive_submenu(
                     recipient_phone,
                     "Installation / Demo related",
                     "Please choose an option:",
                     [
-                        {"id": "opt_1_1", "title": "New Installation", "description": "Setup a new appliance"},
-                        {"id": "opt_1_2", "title": "Demo Request", "description": "Book a product demo"}
+                        {"id": "sub_1_1", "title": "New Installation", "description": "Setup a new appliance"},
+                        {"id": "sub_1_2", "title": "Demo Request", "description": "Book a product demo"}
                     ]
                 )
-            elif user_text == "opt_1_1":
-                send_whatsapp_message(recipient_phone, "Please share your appliance name, address, and preferred date for the new installation.")
-            elif user_text == "opt_1_2":
-                send_whatsapp_message(recipient_phone, "Please share your appliance name and preferred time slot for a product demo.")
-
             elif user_text in ["opt_2", "2"]:
                 send_interactive_submenu(
                     recipient_phone,
                     "Repair Related",
                     "Please choose your appliance for repair:",
                     [
-                        {"id": "opt_2_1", "title": "AC Repair", "description": "Cooling or power issues"},
-                        {"id": "opt_2_2", "title": "Refrigerator Repair", "description": "Freezing or cooling problems"},
-                        {"id": "opt_2_3", "title": "Washing Machine", "description": "Drum, spin or water issues"},
-                        {"id": "opt_2_4", "title": "Microwave Repair", "description": "Heating or panel issues"}
+                        {"id": "sub_2_1", "title": "AC Repair", "description": "Cooling or power issues"},
+                        {"id": "sub_2_2", "title": "Refrigerator Repair", "description": "Freezing or cooling problems"},
+                        {"id": "sub_2_3", "title": "Washing Machine", "description": "Drum, spin or water issues"},
+                        {"id": "sub_2_4", "title": "Microwave Repair", "description": "Heating or panel issues"}
                     ]
                 )
-            elif user_text == "opt_2_1":
-                send_whatsapp_message(recipient_phone, "Please share your AC brand name, issue description, and service address.")
-            elif user_text == "opt_2_2":
-                send_whatsapp_message(recipient_phone, "Please share your Refrigerator brand name, issue, and location.")
-            elif user_text == "opt_2_3":
-                send_whatsapp_message(recipient_phone, "Please share your Washing Machine brand name, error code, and location.")
-            elif user_text == "opt_2_4":
-                send_whatsapp_message(recipient_phone, "Please share your Microwave brand name, issue, and location.")
-
             elif user_text in ["opt_3", "3"]:
                 send_interactive_submenu(
                     recipient_phone,
                     "Maintenance Related",
                     "Please choose an option:",
                     [
-                        {"id": "opt_3_1", "title": "AMC Plans", "description": "Annual Maintenance Contracts"},
-                        {"id": "opt_3_2", "title": "General Checkup", "description": "Routine maintenance service"}
+                        {"id": "sub_3_1", "title": "AMC Plans", "description": "Annual Maintenance Contracts"},
+                        {"id": "sub_3_2", "title": "General Checkup", "description": "Routine maintenance service"}
                     ]
                 )
-            elif user_text == "opt_3_1":
-                send_whatsapp_message(recipient_phone, "Our team will reach out with AMC pricing plans and coverage details.")
-            elif user_text == "opt_3_2":
-                send_whatsapp_message(recipient_phone, "Please provide your appliance details to schedule a routine checkup.")
-
             elif user_text in ["opt_4", "4"]:
                 send_interactive_submenu(
                     recipient_phone,
                     "Parts Related Queries",
                     "Please choose an option:",
                     [
-                        {"id": "opt_4_1", "title": "Filter Replacement", "description": "Water purifier filters/cartridges"},
-                        {"id": "opt_4_2", "title": "Spare Parts Inquiry", "description": "General parts lookup"}
+                        {"id": "sub_4_1", "title": "Filter Replacement", "description": "Water purifier filters/cartridges"},
+                        {"id": "sub_4_2", "title": "Spare Parts Inquiry", "description": "General parts lookup"}
                     ]
                 )
-            elif user_text == "opt_4_1":
-                send_whatsapp_message(recipient_phone, "Please share your water purifier or appliance model name.")
-            elif user_text == "opt_4_2":
-                send_whatsapp_message(recipient_phone, "Please mention the exact spare part name or model number.")
-
-            elif user_text in ["menu", "hi", "hello", "back"]:
-                send_main_menu(recipient_phone)
+            elif user_text.startswith("sub_"):
+                # User selected a specific service sub-option, now begin data collection form
+                service_map = {
+                    "sub_1_1": "New Appliance Installation",
+                    "sub_1_2": "Product Demo Request",
+                    "sub_2_1": "AC Repair",
+                    "sub_2_2": "Refrigerator Repair",
+                    "sub_2_3": "Washing Machine Repair",
+                    "sub_2_4": "Microwave Repair",
+                    "sub_3_1": "Annual Maintenance Contract (AMC)",
+                    "sub_3_2": "General Servicing Checkup",
+                    "sub_4_1": "Filter / Cartridge Replacement",
+                    "sub_4_2": "General Spare Parts Inquiry"
+                }
+                user_sessions[recipient_phone]["data"]["service"] = service_map.get(user_text, "General Request")
+                user_sessions[recipient_phone]["state"] = "WAITING_FOR_BILLING_NAME"
+                
+                send_whatsapp_message(recipient_phone, f"You selected *{user_sessions[recipient_phone]['data']['service']}*.\n\nPlease enter your full *billing name*:")
             else:
                 send_main_menu(recipient_phone)
 
@@ -162,7 +214,6 @@ def send_interactive_submenu(phone_number, title, body_text, options):
         "Content-Type": "application/json",
     }
     rows = [{"id": opt["id"], "title": opt["title"], "description": opt["description"]} for opt in options]
-    # Add a back to menu option
     rows.append({"id": "menu", "title": "Main Menu", "description": "Go back to start"})
 
     payload = {
