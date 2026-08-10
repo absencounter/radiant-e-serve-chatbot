@@ -38,18 +38,31 @@ def receive_message():
             value = data["entry"][0]["changes"][0]["value"]
             message = value["messages"][0]
             recipient_phone = message["from"]
+            
+            # Extract what the user typed and remove trailing spaces
+            user_text = message.get("text", {}).get("body", "").strip()
 
-            # Define your professional menu response
-            response_message = (
-                "Dear Customer, thank you for messaging Radiant E Serve, a "
-                "Reliance Authorised Service Partner. Kindly let us know your query:\n\n"
-                "1. Installation/Demo related\n"
-                "2. Repair related\n"
-                "3. Maintenance related\n"
-                "4. Parts related queries"
-            )
+            # Check user choice and formulate the appropriate reply
+            if user_text == "1":
+                response_message = "You selected *1. Installation/Demo related*. Our support team will assist you shortly with your installation request."
+            elif user_text == "2":
+                response_message = "You selected *2. Repair related*. Please share your appliance details and the issue you are facing."
+            elif user_text == "3":
+                response_message = "You selected *3. Maintenance related*. Kindly provide your service contract or appliance details."
+            elif user_text == "4":
+                response_message = "You selected *4. Parts related queries*. Please let us know which spare part you are looking for."
+            else:
+                # Default main menu for "Hi", "Hello", or anything else
+                response_message = (
+                    "Dear Customer, thank you for messaging Radiant E Serve, a "
+                    "Reliance Authorised Service Partner. Kindly let us know your query:\n\n"
+                    "1. Installation/Demo related\n"
+                    "2. Repair related\n"
+                    "3. Maintenance related\n"
+                    "4. Parts related queries"
+                )
 
-            # Send the message back via Meta Graph API
+            # Send the text back via Meta Graph API
             send_whatsapp_message(recipient_phone, response_message)
 
     except Exception as e:
