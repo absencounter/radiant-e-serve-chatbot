@@ -11,7 +11,6 @@ PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
 
 @app.route("/webhook", methods=["GET"])
 def verify_webhook():
-    # Meta webhook verification handshake
     mode = request.args.get("hub.mode")
     token = request.args.get("hub.verify_token")
     challenge = request.args.get("hub.challenge")
@@ -28,7 +27,6 @@ def receive_message():
     data = request.get_json()
 
     try:
-        # Check if the incoming payload has a message
         if (
             data
             and "entry" in data
@@ -39,20 +37,68 @@ def receive_message():
             message = value["messages"][0]
             recipient_phone = message["from"]
             
-            # Extract what the user typed and remove trailing spaces
             user_text = message.get("text", {}).get("body", "").strip()
 
-            # Check user choice and formulate the appropriate reply
+            # Dynamic multi-level responses with expanded repair options
             if user_text == "1":
-                response_message = "You selected *1. Installation/Demo related*. Our support team will assist you shortly with your installation request."
+                response_message = (
+                    "You selected *1. Installation/Demo related*.\n\n"
+                    "Please choose an option:\n"
+                    "1.1 New Appliance Installation\n"
+                    "1.2 Demo Request\n"
+                    "Type 'menu' to go back to the main menu."
+                )
+            elif user_text == "1.1":
+                response_message = "Please share your appliance name, address, and preferred date for the new installation."
+            elif user_text == "1.2":
+                response_message = "Please share your appliance name and preferred time slot for a product demo."
+                
             elif user_text == "2":
-                response_message = "You selected *2. Repair related*. Please share your appliance details and the issue you are facing."
+                response_message = (
+                    "You selected *2. Repair related*.\n\n"
+                    "Please choose an option:\n"
+                    "2.1 AC Repair\n"
+                    "2.2 Refrigerator Repair\n"
+                    "2.3 Washing Machine Repair\n"
+                    "2.4 Microwave Repair\n"
+                    "Type 'menu' to go back to the main menu."
+                )
+            elif user_text == "2.1":
+                response_message = "Please share your AC brand name, description of the cooling issue, and your service address."
+            elif user_text == "2.2":
+                response_message = "Please share your Refrigerator brand name, cooling or electrical issue, and your location."
+            elif user_text == "2.3":
+                response_message = "Please share your Washing Machine brand name, error code or drum issue, and your location."
+            elif user_text == "2.4":
+                response_message = "Please share your Microwave brand name, heating or power issue, and your location."
+
             elif user_text == "3":
-                response_message = "You selected *3. Maintenance related*. Kindly provide your service contract or appliance details."
+                response_message = (
+                    "You selected *3. Maintenance related*.\n\n"
+                    "Please choose an option:\n"
+                    "3.1 Annual Maintenance Contract (AMC)\n"
+                    "3.2 General Servicing Checkup\n"
+                    "Type 'menu' to go back to the main menu."
+                )
+            elif user_text == "3.1":
+                response_message = "Our team will reach out with AMC pricing plans and coverage details for your appliances."
+            elif user_text == "3.2":
+                response_message = "Please provide your appliance details to schedule a routine maintenance checkup."
+
             elif user_text == "4":
-                response_message = "You selected *4. Parts related queries*. Please let us know which spare part you are looking for."
-            else:
-                # Default main menu for "Hi", "Hello", or anything else
+                response_message = (
+                    "You selected *4. Parts related queries*.\n\n"
+                    "Please choose an option:\n"
+                    "4.1 Filter / Cartridge Replacement\n"
+                    "4.2 General Spare Parts Inquiry\n"
+                    "Type 'menu' to go back to the main menu."
+                )
+            elif user_text == "4.1":
+                response_message = "Please share your water purifier or appliance model name to check filter availability."
+            elif user_text == "4.2":
+                response_message = "Please mention the exact spare part name or model number you are looking for."
+
+            elif user_text.lower() in ["menu", "hi", "hello"]:
                 response_message = (
                     "Dear Customer, thank you for messaging Radiant E Serve, a "
                     "Reliance Authorised Service Partner. Kindly let us know your query:\n\n"
@@ -61,8 +107,11 @@ def receive_message():
                     "3. Maintenance related\n"
                     "4. Parts related queries"
                 )
+            else:
+                response_message = (
+                    "Thank you for your message. Type 'menu' anytime to see the main options list."
+                )
 
-            # Send the text back via Meta Graph API
             send_whatsapp_message(recipient_phone, response_message)
 
     except Exception as e:
