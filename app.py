@@ -1,15 +1,17 @@
+import os
+import requests
 from flask import Flask, request, jsonify
-import datetime
 
 app = Flask(__name__)
 
-# In-memory storage for demonstration (replace with PostgreSQL/MongoDB in production)
-ticket_database = []
+# Load environment variables from Render
+VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
+WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN")
+PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
 
-# Webhook verification for Meta WhatsApp Cloud API
 @app.route("/webhook", methods=["GET"])
 def verify_webhook():
-    VERIFY_TOKEN = "radiant_secure_token_123"  # Set this in your Meta App dashboard
+    # Meta webhook verification handshake
     mode = request.args.get("hub.mode")
     token = request.args.get("hub.verify_token")
     challenge = request.args.get("hub.challenge")
@@ -19,102 +21,58 @@ def verify_webhook():
             return challenge, 200
         else:
             return "Verification failed", 403
-    return "Hello from Radiant e Serve Bot Server", 200
+    return "Hello World", 200
 
-# Webhook to receive incoming messages from WhatsApp
 @app.route("/webhook", methods=["POST"])
-def handle_whatsapp_message():
+def receive_message():
     data = request.get_json()
-    
+
     try:
-        # Extract incoming message details from WhatsApp Payload structure
-        if "entry" in data:
-            change = data["entry"][0]["changes"][0]["value"]
-            if "messages" in change:
-                msg = change["messages"][0]
-                sender_phone = msg["from"]
-                message_body = msg["text"]["body"].strip()
-                
-                # Process the message through our conversational logic handler
-                response_data = process_chat_logic(sender_phone, message_body)
-                
-                # Here you would normally use the Meta Cloud API to send `response_data` back to `sender_phone`
-                print(f"Sending to {sender_phone}: {response_data}")
+        # Check if the incoming payload has a message
+        if (
+            data
+            and "entry" in data
+            and data["entry"][0]["changes"]
+            and "messages" in data["entry"][0]["changes"][0]["value"]
+        ):
+            value = data["entry"][0]["changes"][0]["value"]
+            message = value["messages"][0]
+            recipient_phone = message["from"]
 
-        return jsonify({"status": "success"}), 200
+            # Define your professional menu response
+            response_message = (
+                "Dear Customer, thank you for messaging Radiant E Serve, a "
+                "Reliance Authorised Service Partner. Kindly let us know your query:\n\n"
+                "1. Installation/Demo related\n"
+                "2. Repair related\n"
+                "3. Maintenance related\n"
+                "4. Parts related queries"
+            )
+
+            # Send the message back via Meta Graph API
+            send_whatsapp_message(recipient_phone, response_message)
+
     except Exception as e:
-        print(f"Error handling webhook: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 400
+        print(f"Error processing webhook: {e}")
 
-# Simple state manager & problem capture function
-user_sessions = {}
+    return jsonify({"status": "success"}), 200
 
-def process_chat_logic(phone, text):
-    # Check if user has an active session, else start one
-    if phone not in user_sessions:
-        user_sessions[phone] = {"step": "MENU"}
-        return "Welcome to Radiant e Serve 🛠️.\n1. Book a Repair\n2. General Support"
-    
-    state = user_sessions[phone]
-    current_step = state["step"]
-    
-    if current_step == "MENU":
-        if text == "1":
-            state["step"] = "GET_DEVICE"
-            return "What device or appliance needs service? (e.g., Mi Smartphone, LED TV, Home Appliance)"
-        else:
-            state["step"] = "GET_GENERAL_QUERY"
-            return "Please type your general inquiry or problem statement:"
-            
-    elif current_step == "GET_DEVICE":
-        state["device"] = text
-        state["step"] = "GET_PROBLEM"
-        return "Please describe the problem you are facing with your device:"
-        
-    elif current_step == "GET_PROBLEM":
-        state["problem"] = text
-        state["step"] = "DONE"
-        
-        # Generate Ticket & Store Data
-        ticket_id = f"RES-{int(datetime.datetime.now().timestamp())}"
-        ticket_payload = {
-            "ticket_id": ticket_id,
-            "timestamp": datetime.datetime.now().isoformat(),
-            "customer_phone": phone,
-            "device": state.get("device", "General Inquiry"),
-            "problem": state["problem"]
-        }
-        
-        # Save to database
-        ticket_database.append(ticket_payload)
-        
-        # Forward to Radiant e Serve (Trigger internal alert/email here)
-        forward_to_radiant_esecreve(ticket_payload)
-        
-        # Reset session
-        del user_sessions[phone]
-        
-        return f"Thank you! Your issue has been recorded. Ticket ID: {ticket_id}. Our team at Radiant e Serve will reach out soon."
+def send_whatsapp_message(phone_number, text):
+    url = f"https://graph.facebook.com/v21.0/{PHONE_NUMBER_ID}/messages"
+    headers = {
+        "Authorization": f"Bearer {WHATSAPP_TOKEN}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": phone_number,
+        "type": "text",
+        "text": {"body": text},
+    }
 
-    elif current_step == "GET_GENERAL_QUERY":
-        ticket_id = f"RES-GEN-{int(datetime.datetime.now().timestamp())}"
-        ticket_payload = {
-            "ticket_id": ticket_id,
-            "timestamp": datetime.datetime.now().isoformat(),
-            "customer_phone": phone,
-            "problem": text
-        }
-        ticket_database.append(ticket_payload)
-        forward_to_radiant_esecreve(ticket_payload)
-        
-        del user_sessions[phone]
-        return f"We have received your message (Ticket: {ticket_id}). Support team will contact you shortly!"
-
-def forward_to_radiant_esecreve(ticket):
-    # Integration point: Send data via email (using SMTP/SendGrid) or an internal API endpoint 
-    print("--- FORWARDING TO RADIANT E SERVE ---")
-    print(ticket)
-    print("-------------------------------------")
+    response = requests.post(url, headers=headers, json=payload)
+    print(f"Meta API Response: {response.status_code} - {response.text}")
 
 if __name__ == "__main__":
-    app.run(port=5000, debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
