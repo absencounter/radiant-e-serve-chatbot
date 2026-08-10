@@ -9,8 +9,10 @@ VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN")
 PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
 
+# Your Google Sheets Web App URL
+GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx-P9EhxCwaifKvMw5PnMPJFZLWGd2FDtCVWhyTxdXM_FCcB7SFV_m-ni3PZz9v0oUn/exec"
+
 # In-memory storage for collecting user details step-by-step
-# Structure: { phone_number: {"state": "...", "data": {...}} }
 user_sessions = {}
 
 @app.route("/webhook", methods=["GET"])
@@ -90,19 +92,28 @@ def receive_message():
             elif current_state == "WAITING_FOR_ADDRESS":
                 user_sessions[recipient_phone]["data"]["address"] = user_text
                 
+                # Grab the full collected data dictionary
+                lead_data = user_sessions[recipient_phone]["data"]
+                
+                # Save lead data to Google Sheet automatically
+                try:
+                    requests.post(GOOGLE_SHEET_WEB_APP_URL, json=lead_data, timeout=5)
+                except Exception as e:
+                    print(f"Failed to save to Google Sheet: {e}")
+
                 # Finalize submission summary
-                d = user_sessions[recipient_phone]["data"]
                 summary = (
-                    "✅ *Request Submitted Successfully!*\n\n"
-                    f"📌 *Service Type:* {d.get('service')}\n"
-                    f"👤 *Billing Name:* {d.get('billing_name')}\n"
-                    f"📞 *Registered Phone:* {d.get('reg_phone')}\n"
-                    f"🏷️ *Brand:* {d.get('brand')}\n"
-                    f"🔢 *Model Number:* {d.get('model')}\n"
-                    f"📍 *Address:* {d.get('address')}\n\n"
+                    "✅ *Request Submitted Successfully!* (Saved to Sheets)\n\n"
+                    f"📌 *Service Type:* {lead_data.get('service')}\n"
+                    f"👤 *Billing Name:* {lead_data.get('billing_name')}\n"
+                    f"📞 *Registered Phone:* {lead_data.get('reg_phone')}\n"
+                    f"🏷️ *Brand:* {lead_data.get('brand')}\n"
+                    f"🔢 *Model Number:* {lead_data.get('model')}\n"
+                    f"📍 *Address:* {lead_data.get('address')}\n\n"
                     "Our support executive will contact you shortly. Type 'menu' to start over."
                 )
                 send_whatsapp_message(recipient_phone, summary)
+                
                 # Reset session state
                 user_sessions[recipient_phone] = {"state": "IDLE", "data": {}}
                 return jsonify({"status": "success"}), 200
@@ -151,7 +162,6 @@ def receive_message():
                     ]
                 )
             elif user_text.startswith("sub_"):
-                # User selected a specific service sub-option, now begin data collection form
                 service_map = {
                     "sub_1_1": "New Appliance Installation",
                     "sub_1_2": "Product Demo Request",
