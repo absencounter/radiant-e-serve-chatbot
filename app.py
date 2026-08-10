@@ -86,7 +86,8 @@ def receive_message():
             elif current_state == "WAITING_FOR_MODEL":
                 user_sessions[recipient_phone]["data"]["model"] = user_text
                 user_sessions[recipient_phone]["state"] = "WAITING_FOR_ADDRESS"
-                send_whatsapp_message(recipient_phone, "Please enter your *current address with pincode*:")
+                # Updated prompt with mandatory 6-digit pincode instruction
+                send_whatsapp_message(recipient_phone, "Please enter your *current address* (6 digit pincode is mandatory):")
                 return jsonify({"status": "success"}), 200
 
             elif current_state == "WAITING_FOR_ADDRESS":
