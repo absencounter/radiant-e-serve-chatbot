@@ -47,7 +47,6 @@ def receive_message():
             current_time = time.time()
 
             # --- RATE LIMIT / COOLDOWN CHECK (3 seconds) ---
-            # Prevents double replies when users send multi-text back-to-back ("Hii" + "I am...")
             if recipient_phone in user_last_action_time:
                 if current_time - user_last_action_time[recipient_phone] < 3.0:
                     return jsonify({"status": "rate_limited"}), 200
@@ -173,19 +172,19 @@ def receive_message():
                     ]
                 )
             elif user_text.startswith("sub_"):
-                service_map = {
-                    "sub_1_1": "New Appliance Installation",
-                    "sub_1_2": "Product Demo Request",
-                    "sub_2_1": "AC Repair",
-                    "sub_2_2": "Refrigerator Repair",
-                    "sub_2_3": "Washing Machine Repair",
-                    "sub_2_4": "Microwave Repair",
-                    "sub_3_1": "Annual Maintenance Contract (AMC)",
-                    "sub_3_2": "General Servicing Checkup",
-                    "sub_4_1": "Filter / Cartridge Replacement",
-                    "sub_4_2": "General Spare Parts Inquiry"
+                service_mapping = {
+                    "sub_1_1": "Installation/Demo > New Installation",
+                    "sub_1_2": "Installation/Demo > Demo Request",
+                    "sub_2_1": "Repair Related > AC Repair",
+                    "sub_2_2": "Repair Related > Refrigerator Repair",
+                    "sub_2_3": "Repair Related > Washing Machine Repair",
+                    "sub_2_4": "Repair Related > Microwave Repair",
+                    "sub_3_1": "Maintenance > AMC Plans",
+                    "sub_3_2": "Maintenance > General Checkup",
+                    "sub_4_1": "Parts Queries > Filter Replacement",
+                    "sub_4_2": "Parts Queries > Spare Parts Inquiry"
                 }
-                user_sessions[recipient_phone]["data"]["service"] = service_map.get(user_text, "General Request")
+                user_sessions[recipient_phone]["data"]["service"] = service_mapping.get(user_text, "General Request")
                 user_sessions[recipient_phone]["state"] = "WAITING_FOR_BILLING_NAME"
                 
                 send_whatsapp_message(recipient_phone, f"You selected *{user_sessions[recipient_phone]['data']['service']}*.\n\nPlease enter your full *billing name*:")
