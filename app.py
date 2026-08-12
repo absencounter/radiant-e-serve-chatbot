@@ -9,7 +9,7 @@ VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN")
 PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
 
-# Your updated Google Sheets Web App URL for Radiant E Serve Leads V2
+# Your Google Sheets Web App URL
 GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx2FLbs_CNv2pZ2O7lHGKjoqHaiUDQAwYAEAhB8Aw8rZmn3mUvlAntgMBH-cjHuJyIW/exec"
 
 # In-memory storage for collecting user details step-by-step
@@ -60,6 +60,11 @@ def receive_message():
 
             # Reset or Menu triggers
             if user_text.lower() in ["menu", "hi", "hello", "back"]:
+                # If they are already idle and send "Hi" multiple times, don't spam duplicate menus
+                if current_state == "IDLE" and user_text.lower() in ["hi", "hello"]:
+                    # Check if we recently sent a menu (optional) or just let it trigger once if state allows
+                    pass
+                
                 user_sessions[recipient_phone] = {"state": "IDLE", "data": {}}
                 send_main_menu(recipient_phone)
                 return jsonify({"status": "success"}), 200
@@ -86,7 +91,6 @@ def receive_message():
             elif current_state == "WAITING_FOR_MODEL":
                 user_sessions[recipient_phone]["data"]["model"] = user_text
                 user_sessions[recipient_phone]["state"] = "WAITING_FOR_ADDRESS"
-                # Updated prompt with mandatory 6-digit pincode instruction
                 send_whatsapp_message(recipient_phone, "Please enter your *current address* (6 digit pincode is mandatory):")
                 return jsonify({"status": "success"}), 200
 
@@ -180,7 +184,9 @@ def receive_message():
                 
                 send_whatsapp_message(recipient_phone, f"You selected *{user_sessions[recipient_phone]['data']['service']}*.\n\nPlease enter your full *billing name*:")
             else:
-                send_main_menu(recipient_phone)
+                # Only show main menu if they are truly idle
+                if current_state == "IDLE":
+                    send_main_menu(recipient_phone)
 
     except Exception as e:
         print(f"Error processing webhook: {e}")
