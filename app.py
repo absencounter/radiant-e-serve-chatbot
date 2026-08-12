@@ -1,4 +1,5 @@
 import os
+import time
 import requests
 from flask import Flask, request, jsonify
 
@@ -12,8 +13,9 @@ PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
 # Your Google Sheets Web App URL
 GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx2FLbs_CNv2pZ2O7lHGKjoqHaiUDQAwYAEAhB8Aw8rZmn3mUvlAntgMBH-cjHuJyIW/exec"
 
-# In-memory storage for collecting user details step-by-step
+# In-memory storage for session state and processed message IDs to prevent duplicates
 user_sessions = {}
+processed_messages = {}
 
 @app.route("/webhook", methods=["GET"])
 def verify_webhook():
@@ -41,6 +43,19 @@ def receive_message():
         ):
             value = data["entry"][0]["changes"][0]["value"]
             message = value["messages"][0]
+            
+            # Extract WhatsApp message unique ID to prevent duplicate processing
+            msg_id = message.get("id")
+            current_time = time.time()
+            
+            # Clean up old processed message IDs older than 60 seconds
+            global processed_messages
+            processed_messages = {m_id: t for m_id, t in processed_messages.items() if current_time - t < 60}
+            
+            if msg_id in processed_messages:
+                return jsonify({"status": "duplicate_ignored"}), 200
+            processed_messages[msg_id] = current_time
+
             recipient_phone = message["from"]
             
             # Extract user text or interactive response ID
@@ -60,11 +75,6 @@ def receive_message():
 
             # Reset or Menu triggers
             if user_text.lower() in ["menu", "hi", "hello", "back"]:
-                # If they are already idle and send "Hi" multiple times, don't spam duplicate menus
-                if current_state == "IDLE" and user_text.lower() in ["hi", "hello"]:
-                    # Check if we recently sent a menu (optional) or just let it trigger once if state allows
-                    pass
-                
                 user_sessions[recipient_phone] = {"state": "IDLE", "data": {}}
                 send_main_menu(recipient_phone)
                 return jsonify({"status": "success"}), 200
@@ -184,7 +194,6 @@ def receive_message():
                 
                 send_whatsapp_message(recipient_phone, f"You selected *{user_sessions[recipient_phone]['data']['service']}*.\n\nPlease enter your full *billing name*:")
             else:
-                # Only show main menu if they are truly idle
                 if current_state == "IDLE":
                     send_main_menu(recipient_phone)
 
