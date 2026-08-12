@@ -13,9 +13,9 @@ PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
 # Your Google Sheets Web App URL
 GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx2FLbs_CNv2pZ2O7lHGKjoqHaiUDQAwYAEAhB8Aw8rZmn3mUvlAntgMBH-cjHuJyIW/exec"
 
-# In-memory storage for session state and processed message IDs to prevent duplicates
+# In-memory storage for sessions and rate-limiting cooldowns
 user_sessions = {}
-processed_messages = {}
+user_last_action_time = {}
 
 @app.route("/webhook", methods=["GET"])
 def verify_webhook():
@@ -43,21 +43,17 @@ def receive_message():
         ):
             value = data["entry"][0]["changes"][0]["value"]
             message = value["messages"][0]
-            
-            # Extract WhatsApp message unique ID to prevent duplicate processing
-            msg_id = message.get("id")
-            current_time = time.time()
-            
-            # Clean up old processed message IDs older than 60 seconds
-            global processed_messages
-            processed_messages = {m_id: t for m_id, t in processed_messages.items() if current_time - t < 60}
-            
-            if msg_id in processed_messages:
-                return jsonify({"status": "duplicate_ignored"}), 200
-            processed_messages[msg_id] = current_time
-
             recipient_phone = message["from"]
+            current_time = time.time()
+
+            # --- RATE LIMIT / COOLDOWN CHECK (3 seconds) ---
+            # Prevents double replies when users send multi-text back-to-back ("Hii" + "I am...")
+            if recipient_phone in user_last_action_time:
+                if current_time - user_last_action_time[recipient_phone] < 3.0:
+                    return jsonify({"status": "rate_limited"}), 200
             
+            user_last_action_time[recipient_phone] = current_time
+
             # Extract user text or interactive response ID
             user_text = ""
             if "text" in message:
