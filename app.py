@@ -74,7 +74,7 @@ def receive_message():
                 send_main_menu(recipient_phone)
                 return jsonify({"status": "success"}), 200
 
-            # --- MULTI-STEP FORM FLOW (Model Number Removed) ---
+            # --- MULTI-STEP FORM FLOW ---
             if current_state == "WAITING_FOR_BILLING_NAME":
                 user_sessions[recipient_phone]["data"]["billing_name"] = user_text
                 user_sessions[recipient_phone]["state"] = "WAITING_FOR_REG_PHONE"
@@ -160,8 +160,7 @@ def receive_message():
                         {"id": "sub_3_2", "title": "Refrigerator Checkup", "description": "Fridge routine service"},
                         {"id": "sub_3_3", "title": "Washing Machine Service", "description": "Washing machine checkup"},
                         {"id": "sub_3_4", "title": "Microwave Service", "description": "Microwave routine checkup"},
-                        {"id": "sub_3_5", "title": "TV Maintenance", "description": "Television checkup"},
-                        {"id": "sub_3_6", "title": "Dishwasher Service", "description": "Dishwasher maintenance"}
+                        {"id": "sub_3_5", "title": "Dishwasher Service", "description": "Dishwasher maintenance"}
                     ]
                 )
             elif user_text in ["opt_4", "4"]:
@@ -194,13 +193,12 @@ def receive_message():
                     "sub_2_4": "Repair Related > Microwave Repair",
                     "sub_2_5": "Repair Related > TV Repair",
                     "sub_2_6": "Repair Related > Dishwasher Repair",
-                    # Maintenance Related
+                    # Maintenance Related (TV removed)
                     "sub_3_1": "Maintenance > AC Maintenance",
                     "sub_3_2": "Maintenance > Refrigerator Checkup",
                     "sub_3_3": "Maintenance > Washing Machine Service",
                     "sub_3_4": "Maintenance > Microwave Service",
-                    "sub_3_5": "Maintenance > TV Maintenance",
-                    "sub_3_6": "Maintenance > Dishwasher Service",
+                    "sub_3_5": "Maintenance > Dishwasher Service",
                     # Parts Queries
                     "sub_4_1": "Parts Queries > AC Parts",
                     "sub_4_2": "Parts Queries > Refrigerator Parts",
