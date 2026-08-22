@@ -74,7 +74,7 @@ def receive_message():
                 send_main_menu(recipient_phone)
                 return jsonify({"status": "success"}), 200
 
-            # --- MULTI-STEP FORM FLOW ---
+            # --- MULTI-STEP FORM FLOW (Model Number Removed) ---
             if current_state == "WAITING_FOR_BILLING_NAME":
                 user_sessions[recipient_phone]["data"]["billing_name"] = user_text
                 user_sessions[recipient_phone]["state"] = "WAITING_FOR_REG_PHONE"
@@ -89,12 +89,6 @@ def receive_message():
 
             elif current_state == "WAITING_FOR_BRAND":
                 user_sessions[recipient_phone]["data"]["brand"] = user_text
-                user_sessions[recipient_phone]["state"] = "WAITING_FOR_MODEL"
-                send_whatsapp_message(recipient_phone, "Please enter the appliance *model number*:")
-                return jsonify({"status": "success"}), 200
-
-            elif current_state == "WAITING_FOR_MODEL":
-                user_sessions[recipient_phone]["data"]["model"] = user_text
                 user_sessions[recipient_phone]["state"] = "WAITING_FOR_ADDRESS"
                 send_whatsapp_message(recipient_phone, "Please enter your *current address* (6 digit pincode is mandatory):")
                 return jsonify({"status": "success"}), 200
@@ -118,7 +112,6 @@ def receive_message():
                     f"👤 *Billing Name:* {lead_data.get('billing_name')}\n"
                     f"📞 *Registered Phone:* {lead_data.get('reg_phone')}\n"
                     f"🏷️ *Brand:* {lead_data.get('brand')}\n"
-                    f"🔢 *Model Number:* {lead_data.get('model')}\n"
                     f"📍 *Address:* {lead_data.get('address')}\n\n"
                     "Our support executive will contact you shortly. Type 'menu' to start over."
                 )
@@ -133,56 +126,88 @@ def receive_message():
                 send_interactive_submenu(
                     recipient_phone,
                     "Installation / Demo related",
-                    "Please choose an option:",
+                    "Choose the appliance:",
                     [
-                        {"id": "sub_1_1", "title": "New Installation", "description": "Setup a new appliance"},
-                        {"id": "sub_1_2", "title": "Demo Request", "description": "Book a product demo"}
+                        {"id": "sub_1_1", "title": "AC Installation/Demo", "description": "Air Conditioner setup"},
+                        {"id": "sub_1_2", "title": "Refrigerator Setup", "description": "Fridge installation/demo"},
+                        {"id": "sub_1_3", "title": "Washing Machine Setup", "description": "Washing machine setup"},
+                        {"id": "sub_1_4", "title": "Microwave Setup", "description": "Microwave demo/setup"},
+                        {"id": "sub_1_5", "title": "TV Installation", "description": "Television wall mount/demo"},
+                        {"id": "sub_1_6", "title": "Dishwasher Setup", "description": "Dishwasher installation"}
                     ]
                 )
             elif user_text in ["opt_2", "2"]:
                 send_interactive_submenu(
                     recipient_phone,
                     "Repair Related",
-                    "Please choose your appliance for repair:",
+                    "Choose the appliance for repair:",
                     [
                         {"id": "sub_2_1", "title": "AC Repair", "description": "Cooling or power issues"},
                         {"id": "sub_2_2", "title": "Refrigerator Repair", "description": "Freezing or cooling problems"},
-                        {"id": "sub_2_3", "title": "Washing Machine", "description": "Drum, spin or water issues"},
-                        {"id": "sub_2_4", "title": "Microwave Repair", "description": "Heating or panel issues"}
+                        {"id": "sub_2_3", "title": "Washing Machine Repair", "description": "Drum, spin or water issues"},
+                        {"id": "sub_2_4", "title": "Microwave Repair", "description": "Heating or panel issues"},
+                        {"id": "sub_2_5", "title": "TV Repair", "description": "Display or sound issues"},
+                        {"id": "sub_2_6", "title": "Dishwasher Repair", "description": "Cleaning or draining issues"}
                     ]
                 )
             elif user_text in ["opt_3", "3"]:
                 send_interactive_submenu(
                     recipient_phone,
                     "Maintenance Related",
-                    "Please choose an option:",
+                    "Choose the appliance for maintenance:",
                     [
-                        {"id": "sub_3_1", "title": "AMC Plans", "description": "Annual Maintenance Contracts"},
-                        {"id": "sub_3_2", "title": "General Checkup", "description": "Routine maintenance service"}
+                        {"id": "sub_3_1", "title": "AC Maintenance / AMC", "description": "AC servicing contract"},
+                        {"id": "sub_3_2", "title": "Refrigerator Checkup", "description": "Fridge routine service"},
+                        {"id": "sub_3_3", "title": "Washing Machine Service", "description": "Washing machine checkup"},
+                        {"id": "sub_3_4", "title": "Microwave Service", "description": "Microwave routine checkup"},
+                        {"id": "sub_3_5", "title": "TV Maintenance", "description": "Television checkup"},
+                        {"id": "sub_3_6", "title": "Dishwasher Service", "description": "Dishwasher maintenance"}
                     ]
                 )
             elif user_text in ["opt_4", "4"]:
                 send_interactive_submenu(
                     recipient_phone,
                     "Parts Related Queries",
-                    "Please choose an option:",
+                    "Choose the appliance part:",
                     [
-                        {"id": "sub_4_1", "title": "Filter Replacement", "description": "Water purifier filters/cartridges"},
-                        {"id": "sub_4_2", "title": "Spare Parts Inquiry", "description": "General parts lookup"}
+                        {"id": "sub_4_1", "title": "AC Spare Parts", "description": "AC components & filters"},
+                        {"id": "sub_4_2", "title": "Refrigerator Parts", "description": "Fridge parts lookup"},
+                        {"id": "sub_4_3", "title": "Washing Machine Parts", "description": "Washing machine spares"},
+                        {"id": "sub_4_4", "title": "Microwave Parts", "description": "Microwave components"},
+                        {"id": "sub_4_5", "title": "TV Spares", "description": "Television accessories/parts"},
+                        {"id": "sub_4_6", "title": "Dishwasher Parts", "description": "Dishwasher components"}
                     ]
                 )
             elif user_text.startswith("sub_"):
                 service_mapping = {
-                    "sub_1_1": "Installation/Demo > New Installation",
-                    "sub_1_2": "Installation/Demo > Demo Request",
+                    # Installation / Demo
+                    "sub_1_1": "Installation/Demo > AC",
+                    "sub_1_2": "Installation/Demo > Refrigerator",
+                    "sub_1_3": "Installation/Demo > Washing Machine",
+                    "sub_1_4": "Installation/Demo > Microwave",
+                    "sub_1_5": "Installation/Demo > TV",
+                    "sub_1_6": "Installation/Demo > Dishwasher",
+                    # Repair Related
                     "sub_2_1": "Repair Related > AC Repair",
                     "sub_2_2": "Repair Related > Refrigerator Repair",
                     "sub_2_3": "Repair Related > Washing Machine Repair",
                     "sub_2_4": "Repair Related > Microwave Repair",
-                    "sub_3_1": "Maintenance > AMC Plans",
-                    "sub_3_2": "Maintenance > General Checkup",
-                    "sub_4_1": "Parts Queries > Filter Replacement",
-                    "sub_4_2": "Parts Queries > Spare Parts Inquiry"
+                    "sub_2_5": "Repair Related > TV Repair",
+                    "sub_2_6": "Repair Related > Dishwasher Repair",
+                    # Maintenance Related
+                    "sub_3_1": "Maintenance > AC Maintenance",
+                    "sub_3_2": "Maintenance > Refrigerator Checkup",
+                    "sub_3_3": "Maintenance > Washing Machine Service",
+                    "sub_3_4": "Maintenance > Microwave Service",
+                    "sub_3_5": "Maintenance > TV Maintenance",
+                    "sub_3_6": "Maintenance > Dishwasher Service",
+                    # Parts Queries
+                    "sub_4_1": "Parts Queries > AC Parts",
+                    "sub_4_2": "Parts Queries > Refrigerator Parts",
+                    "sub_4_3": "Parts Queries > Washing Machine Parts",
+                    "sub_4_4": "Parts Queries > Microwave Parts",
+                    "sub_4_5": "Parts Queries > TV Parts",
+                    "sub_4_6": "Parts Queries > Dishwasher Parts"
                 }
                 user_sessions[recipient_phone]["data"]["service"] = service_mapping.get(user_text, "General Request")
                 user_sessions[recipient_phone]["state"] = "WAITING_FOR_BILLING_NAME"
@@ -218,7 +243,7 @@ def send_main_menu(phone_number):
                     "title": "Main Options",
                     "rows": [
                         {"id": "opt_1", "title": "1. Installation/Demo", "description": "New setup or demo request"},
-                        {"id": "opt_2", "title": "2. Repair Related", "description": "AC, Fridge, Washing Machine, etc."},
+                        {"id": "opt_2", "title": "2. Repair Related", "description": "AC, Fridge, TV, Washing Machine, etc."},
                         {"id": "opt_3", "title": "3. Maintenance", "description": "AMC and routine servicing"},
                         {"id": "opt_4", "title": "4. Parts Queries", "description": "Filters and spare parts"}
                     ]
